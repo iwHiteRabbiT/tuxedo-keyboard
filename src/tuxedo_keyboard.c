@@ -26,6 +26,7 @@
 #include <linux/dmi.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/random.h>
 
 MODULE_AUTHOR
     ("Christian Loritz / TUXEDO Computer GmbH <tux@tuxedocomputers.com>");
@@ -183,13 +184,13 @@ static int tuxedo_evaluate_wmi_method(u32 method_id, u32 arg, u32 * retval)
 	acpi_status status;
 	u32 tmp;
 
-	TUXEDO_DEBUG("evaluate method: %0#4x  IN : %0#6x\n", method_id, arg);
+	TUXEDO_INFO("evaluate method: %0#4x  IN : %0#6x\n", method_id, arg);
 
 	status =
 	    wmi_evaluate_method(CLEVO_GET_GUID, 0x00, method_id, &in, &out);
 
 	if (unlikely(ACPI_FAILURE(status))) {
-		TUXEDO_ERROR("evaluate method error");
+		TUXEDO_INFO("evaluate method error");
 		goto exit;
 	}
 
@@ -200,7 +201,7 @@ static int tuxedo_evaluate_wmi_method(u32 method_id, u32 arg, u32 * retval)
 		tmp = 0;
 	}
 
-	TUXEDO_DEBUG("%0#4x  OUT: %0#6x (IN: %0#6x)\n", method_id, tmp, arg);
+	TUXEDO_INFO("%0#4x  OUT: %0#6x (IN: %0#6x)\n", method_id, tmp, arg);
 
 	if (likely(retval)) {
 		*retval = tmp;
@@ -283,7 +284,7 @@ static int set_color(u32 region, u32 color)
 	    ((color & 0x00FF00) >> 8);
 	u32 cmd = region | cset;
 
-	TUXEDO_DEBUG("Set Color '%08x' for region '%08x'", color, region);
+	TUXEDO_INFO("Set Color '%08x' for region '%08x'", color, region);
 
 	return tuxedo_evaluate_wmi_method(SET_KB_LED, cmd, NULL);
 }
@@ -437,8 +438,11 @@ static void tuxedo_wmi_notify(u32 value, void *context)
 		break;
 
 	case WMI_CODE_NEXT_MODE:
-		set_blinking_pattern((keyboard.mode + 1) >
-		         (ARRAY_SIZE(blinking_patterns) - 1) ? 0 : (keyboard.mode + 1));
+
+		set_color(REGION_LEFT, get_random_u32());
+
+		// set_blinking_pattern((keyboard.mode + 1) >
+		//          (ARRAY_SIZE(blinking_patterns) - 1) ? 0 : (keyboard.mode + 1));
 		break;
 
 	case WMI_CODE_TOGGLE_STATE:
@@ -641,9 +645,12 @@ static int __init tuxdeo_keyboard_init(void)
 	set_color(REGION_CENTER, param_color_center);
 	set_color(REGION_RIGHT, param_color_right);
 
-	set_blinking_pattern(param_mode);
+	// set_blinking_pattern(param_mode);
+	set_blinking_pattern(0);
 	set_brightness(param_brightness);
 	set_state(param_state);
+
+	set_color(REGION_LEFT, get_random_u32());
 
 	return 0;
 }
